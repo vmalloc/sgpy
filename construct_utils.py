@@ -61,8 +61,17 @@ class DefaultStruct(Struct):
     def __init__(self, *args, **kwargs):
         self.defaults = kwargs.pop('defaults', {})
         super(DefaultStruct, self).__init__(*args, **kwargs)
+
+        subcons_names = set(subcon.name for subcon in self.subcons)
+        invalid_defaults = list(set(self.defaults) - subcons_names)
+        if invalid_defaults:
+            raise ValueError("invalid default name/s: {0}".format(invalid_defaults))
     def build(self, obj):
         for k, v in self.defaults.iteritems():
             if not hasattr(obj, k):
                 setattr(obj, k, v)
         return super(DefaultStruct, self).build(obj)
+
+class DefaultCStruct(CStruct, DefaultStruct):
+    def __init__(self, *args, **kwargs):
+        super(DefaultCStruct, self).__init__(*args, **kwargs)
