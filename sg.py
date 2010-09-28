@@ -74,9 +74,11 @@ SgIoHdr = DefaultCStruct("sg_io_hdr",
                                         SG_INFO_INDIRECT_IO=0,
                                         SG_INFO_DIRECT_IO=1,
                                         SG_INFO_MIXED_IO=2),
-                                   Padding(5)),
-                         defaults=dict(interface_id=ord('S'),
+                                   Padding(int_in_bits - 3)),
+                         defaults=dict(interface_id="SCSI_GENERIC",
                                        iovec_count=0,
+                                       dxfer_len=0,
+                                       dxferp=0,
                                        timeout=0, # driver will set 60
                                        flags=Container(SG_FLAG_DIRECT_IO=False,
                                                        SG_FLAG_LUN_INHIBIT=False,
@@ -94,4 +96,5 @@ SgIoHdr = DefaultCStruct("sg_io_hdr",
                                        duration=0,
                                        info=Container(status="SG_INFO_OK",
                                                       io_type="SG_INFO_INDIRECT_IO")))
-                                                       
+
+SgIoHdrSize = SgIoHdr.sizeof()

@@ -8,7 +8,7 @@ def _Scsi6(name, opcode):
                          Byte("transfer_length"),
                          Byte("control"),
                          defaults=dict(opcode=opcode,
-                                       lun=0,
+                                       #lun=0,
                                        control=0))                                 
 
 def _Scsi10(name, opcode, protect_type):

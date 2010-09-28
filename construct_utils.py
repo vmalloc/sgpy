@@ -1,6 +1,7 @@
 from ctypes import sizeof, c_int, c_char, c_short, c_voidp
 import construct
 from construct import *
+from construct.lib.container import AttrDict
 
 size_in_bits = lambda ctype: sizeof(ctype) * 8
 int_from_bits = lambda signed: lambda bits: getattr(construct, "%sNInt%d" % (signed, bits))
@@ -62,10 +63,11 @@ class DefaultStruct(Struct):
         self.defaults = kwargs.pop('defaults', {})
         super(DefaultStruct, self).__init__(*args, **kwargs)
 
-        subcons_names = set(subcon.name for subcon in self.subcons)
-        invalid_defaults = list(set(self.defaults) - subcons_names)
-        if invalid_defaults:
-            raise ValueError("invalid default name/s: {0}".format(invalid_defaults))
+        #subcons_names = set(subcon.name for subcon in self.subcons)
+        #invalid_defaults = list(set(self.defaults) - subcons_names)
+        #if invalid_defaults:
+        #    raise ValueError("invalid default name/s: {0}".format(invalid_defaults))
+        
     def build(self, obj):
         for k, v in self.defaults.iteritems():
             if not hasattr(obj, k):
