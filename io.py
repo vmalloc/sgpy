@@ -21,7 +21,7 @@ class Command(object):
                         sbp=self.sense_ptr)
 
     def handleSgHdr(self, sgHdr):
-        print sgHdr
+        self.hdr = sgHdr
 
 class _Io(Command):
     
@@ -55,7 +55,3 @@ class Input(_Io):
         info = super(Input, self).getSgInfo()
         info.__update__(dict(dxfer_direction="SG_DXFER_FROM_DEV"))
         return info
-
-    def handleSgHdr(self, sgHdr):
-        super(Input, self).handleSgHdr(sgHdr)
-        self.hdr = sgHdr

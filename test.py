@@ -5,7 +5,11 @@ from reactor import Reactor
 import os
 
 SECTOR = 512
-reactor = Reactor.fromPath("/dev/sg4")
+reactor = None
+
+def init(dev):
+    global reactor
+    reactor = Reactor.fromPath("/dev/sg%d" % (dev,))
 
 def createRead10(lba, blocks):
     return Input(cdb=Read10.build(AttrDict(lba=lba, transfer_length=blocks)), data_len=SECTOR*blocks)
@@ -38,6 +42,21 @@ def test_write():
 def test_read():
     assert read_blocks(0, 10, 2) == read_blocks(0, 10, 1)
 
+import time
+
+def test_iops(n=2**16):
+    ios = [createRead10(0, 1) for i in xrange(n)]
+    stime = time.time()
+    reactor.process(ios)
+    print "iops: %f" % (len(ios) / (time.time() - stime))
+
+def bad_ios(n=1000):
+    ios = [createRead10(0, 1) for i in xrange(n)]
+    reactor.process(ios)
+    return [io for io in ios if io.hdr.msg_status != 0 or io.hdr.driver_status != 0 or io.hdr.masked_status != 0 or io.hdr.status != 0]
+
 if __name__ == '__main__':
+    
     test_write()
     test_read()
+    
