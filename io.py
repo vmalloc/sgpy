@@ -1,5 +1,5 @@
 from array import array
-from construct_utils import AttrDict
+from .construct_utils import AttrDict
 
 def bytearray(init=""):
     arr = array("b", init)
@@ -23,18 +23,19 @@ class Command(object):
     def handleSgHdr(self, sgHdr):
         self.hdr = sgHdr
 
-class _Io(Command):
+# abstract
+class InputOrOutput(Command):
     
     def __init__(self, *args, **kwargs):
-        super(_Io, self).__init__(*args, **kwargs)
+        super(InputOrOutput, self).__init__(*args, **kwargs)
         
     def getSgInfo(self):
-        info = super(_Io, self).getSgInfo()
+        info = super(InputOrOutput, self).getSgInfo()
         info.__update__(dict(dxfer_len=self.data_len,
                              dxferp=self.data_ptr))
         return info
 
-class Output(_Io):
+class Output(InputOrOutput):
     
     def __init__(self, data, *args, **kwargs):
         super(Output, self).__init__(*args, **kwargs)
@@ -45,7 +46,7 @@ class Output(_Io):
         info.__update__(dict(dxfer_direction="SG_DXFER_TO_DEV"))
         return info
                  
-class Input(_Io):
+class Input(InputOrOutput):
     
     def __init__(self, data_len, *args, **kwargs):
         super(Input, self).__init__(*args, **kwargs)

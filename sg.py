@@ -1,4 +1,4 @@
-from construct_utils import *
+from .construct_utils import *
 
 """
 typedef struct sg_io_hdr

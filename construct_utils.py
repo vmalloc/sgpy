@@ -31,10 +31,9 @@ def c_struct_aligned(subcons, padding_type=Padding):
 
     the last member is padded with the number of bytes required to 
     conform to the largest type of the structure.
-    
+  
     NOTE!: this function does not handle non-basic types like Struct and arrays,
            further code is required to decompose them to into basic types.
-    TBD: handle non-basic types or raise a freakin exception!
     """
     index = 0
     largest_subcon = 0
@@ -55,19 +54,21 @@ def c_struct_aligned(subcons, padding_type=Padding):
         yield padding_type(padding)
 
 class CStruct(Struct):
+    __slots__ = ()
     def __init__(self, name, *subcons, **kw):
         super(CStruct, self).__init__(name, *c_struct_aligned(subcons), **kw)
 
+class NiceStruct(Struct):
+    __slots__ = ()
+    def build(self, **kw):
+        return super(NiceStruct, self).build(Container(**kw))
+
 class DefaultStruct(Struct):
+    __slots__ = ('defaults',)
     def __init__(self, *args, **kwargs):
         self.defaults = kwargs.pop('defaults', {})
         super(DefaultStruct, self).__init__(*args, **kwargs)
 
-        #subcons_names = set(subcon.name for subcon in self.subcons)
-        #invalid_defaults = list(set(self.defaults) - subcons_names)
-        #if invalid_defaults:
-        #    raise ValueError("invalid default name/s: {0}".format(invalid_defaults))
-        
     def build(self, obj):
         for k, v in self.defaults.iteritems():
             if not hasattr(obj, k):
@@ -75,5 +76,12 @@ class DefaultStruct(Struct):
         return super(DefaultStruct, self).build(obj)
 
 class DefaultCStruct(CStruct, DefaultStruct):
+    __slots__ = ()
     def __init__(self, *args, **kwargs):
         super(DefaultCStruct, self).__init__(*args, **kwargs)
+
+# inhertitance order matters here!
+class NiceDefaultStruct(NiceStruct, DefaultStruct):
+    __slots__ = ()
+    def build(self, **kw):
+        return super(NiceDefaultStruct, self).build(**kw)
