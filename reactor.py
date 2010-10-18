@@ -1,69 +1,97 @@
-from sg import SG_IO, SG_MAX_QUEUE, SgIoHdr, SgIoHdrSize
-from fcntl import ioctl
 from select import select
-import os
+import time
 
-class Reactor(object):
-    _DEFAULT_START_INDEX = 0
-    _DEFAULT_END_INDEX = 0xff
+class BaseReactor(object):
+    """
+    Required channel interface:
+      get_fd, 
+      has_pending_ios, 
+      has_pending_input, 
+      has_pending_output, 
+      writable, 
+      readable
+    """
+    
+    class TimeoutError(Exception): pass
+    class FdError(Exception): pass
 
-    @classmethod
-    def fromPath(cls, path, *args, **kwargs):
-        return cls(os.open(path, os.O_RDWR), *args, **kwargs)
+    def __init__(self):
+        self._channels = {}
 
-    def __init__(self, device, 
-                 queue_size=SG_MAX_QUEUE, 
-                 start_index=_DEFAULT_START_INDEX,
-                 end_index=_DEFAULT_END_INDEX):
-        if end_index - start_index < queue_size:
-            raise ValueError("index range (end - start) must be bigger then queue size")
-        self._device = device
-        self._queue_size = queue_size
-        self._start_index = start_index
-        self._end_index = end_index
-        self._index = start_index
-        self._in_flight_ios = {} # index to object
-
-    def _nextIndex(self):
-        index = self._index
-        self._index += 1
-        assert self._index <= self._end_index
-        if self._index == self._end_index:
-            self._index = self._start_index
-        return index
-
-    def ioctl(self, io):
-        data = ioctl(self._device, SG_IO, 
-                     SgIoHdr.build(io.getSgInfo()))
-        io.handleSgHdr(SgIoHdr.parse(data))
-
-    def write(self, io):
-        info = io.getSgInfo()
-        index = self._nextIndex()
-        self._in_flight_ios[index] = io
-        info["usr_ptr"] = index
-        os.write(self._device, SgIoHdr.build(info))
-
-    def read(self):
-        data = os.read(self._device, SgIoHdrSize)
-        hdr = SgIoHdr.parse(data)
-        self._in_flight_ios.pop(hdr.usr_ptr).handleSgHdr(hdr)
+    def register_channel(self, channel):
+        self._channels[channel] = channel.get_fd()
         
-    def process(self, ios):
-        ios = iter(ios)
-        PENDING_WRITES = True
-        while 1:
-            r, e = [self._device], []
-            w = [self._device] if PENDING_WRITES else []
-            r, w, e = select(r, w, e, 0)
-            if self._device in r:
-                self.read()
-            if self._device in w:
-                try:
-                    io = ios.next()
-                except StopIteration:
-                    PENDING_WRITES = False
+    def unregister_channel(self, channel):
+        self._channels.pop(channel)
+
+    def _pending(self):
+        return [channel for channel in self._channels if channel.has_pending_ios()]
+
+    def has_pending(self):
+        return bool(self._pending())
+
+    def poll(self):
+        self.wait(timeout=0, raise_on_timeout=False)
+        return not self.has_pending()
+
+    def loop(self):
+        raise NotImplementedError("Abstract class")
+
+    def wait(self, timeout=None, raise_on_timeout=True, poll=None):
+        if poll is None:
+            poll = lambda: not self.has_pending()
+        if timeout is None:
+            time_left = lambda: None
+        else: 
+            finish_time = time.time() + timeout
+            time_left = lambda: max(0, finish_time - time.time())
+        
+        while not poll():
+            loop_timeout = time_left() 
+            self.loop(timeout=loop_timeout)
+            if loop_timeout == 0: 
+                if raise_on_timeout:
+                    raise self.TimeoutError("timed out waiting for channels: %s" % self._pending())
                 else:
-                    self.write(io)
-            if not PENDING_WRITES and not self._in_flight_ios:
-                break
+                    return False
+        return True
+
+    def _get_pending_input(self):
+        for channel, fd in self._channels.iteritems():
+            if channel.has_pending_input():
+                yield fd
+
+    def _get_pending_output(self):
+        for channel, fd in self._channels.iteritems():
+            if channel.has_pending_output():
+                yield fd
+
+    def _fd_to_channel(self, fd):
+        for channel, current_fd in self._channels.iteritems():
+            if fd == current_fd:
+                return channel
+        assert False, "file descriptor not found"
+
+    def _notify_readable(self, fd):
+        self._fd_to_channel(fd).readable()
+
+    def _notify_writable(self, fd):
+        self._fd_to_channel(fd).writable()
+
+    def _notify_error(self, fd):
+        raise self.FdError("fd %d (channel %s) encountered an error" % (fd, self._fd_to_channel(fd)))
+
+class SelectReactor(BaseReactor):
+    def loop(self, timeout=None):
+        r = list(self._get_pending_input())
+        w = list(self._get_pending_output())
+        e = list(set(r) | set(w))
+        if not e:
+            return
+        r, w, e = select(r, w, e, timeout)
+        for fd in e:
+            self._notify_error(fd)
+        for fd in r:
+            self._notify_readable(fd)
+        for fd in w:
+            self._notify_writable(fd)
