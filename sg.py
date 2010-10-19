@@ -27,10 +27,9 @@ typedef struct sg_io_hdr
     unsigned int duration;      /* [o] time taken (unit: millisec) */
     unsigned int info;          /* [o] auxiliary information */
 } sg_io_hdr_t;  /* around 64 bytes long (on i386) */
-
 """
 
-SG_IO = 0x2285
+IOCTL_SG_IO = 0x2285
 SG_MAX_QUEUE = 16
 
 SgIoHdr = DefaultCStruct("sg_io_hdr",
@@ -49,13 +48,10 @@ SgIoHdr = DefaultCStruct("sg_io_hdr",
                          Pointer("cmdp"),
                          Pointer("sbp"),
                          UNInt("timeout"),
-                         BitStruct("flags",
-                                   Flag("SG_FLAG_DIRECT_IO"),
-                                   Flag("SG_FLAG_LUN_INHIBIT"),
-                                   Flag("SG_FLAG_MMAP_IO"),
-                                   Padding(13),
-                                   Flag("SG_FLAG_NO_DXFER"),
-                                   Padding(int_in_bits - 17)),
+                         FlagsEnum(UNInt("flags"),
+                                   SG_FLAG_DIRECT_IO=1,
+                                   SG_FLAG_LUN_INHIBIT=2,
+                                   SG_FLAG_NO_DXFER=0x10000),
                          SNInt("pack_id"),
                          Pointer("usr_ptr"),
                          UNChar("status"),
@@ -66,15 +62,15 @@ SgIoHdr = DefaultCStruct("sg_io_hdr",
                          UNShort("driver_status"),
                          SNInt("resid"),
                          UNInt("duration"),
-                         BitStruct("info",
-                                   Enum(BitField("status", 1),
-                                        SG_INFO_OK=0,
-                                        SG_INFO_CHECK=1),
-                                   Enum(BitField("io_type", 2),
-                                        SG_INFO_INDIRECT_IO=0,
-                                        SG_INFO_DIRECT_IO=1,
-                                        SG_INFO_MIXED_IO=2),
-                                   BitField("bla", int_in_bits - 3)),
+                         NativeToBigEndian(BitStruct("info",
+                                                     Padding(int_in_bits - 3),
+                                                     Enum(BitField("io_type", 2),
+                                                          SG_INFO_INDIRECT_IO=0,
+                                                          SG_INFO_DIRECT_IO=1,
+                                                          SG_INFO_MIXED_IO=2),
+                                                     Enum(BitField("status", 1),
+                                                          SG_INFO_OK=0,
+                                                          SG_INFO_CHECK=1))),
                          defaults=dict(interface_id="SCSI_GENERIC",
                                        iovec_count=0,
                                        dxfer_len=0,

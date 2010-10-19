@@ -1,12 +1,17 @@
 from ctypes import sizeof, c_int, c_char, c_short, c_voidp
+from cStringIO import StringIO
+import sys
+
 import construct
 from construct import *
 from construct.lib.container import AttrDict
 
-size_in_bits = lambda ctype: sizeof(ctype) * 8
+size_in_bytes = lambda ctype: sizeof(ctype)
+size_in_bits = lambda ctype: size_in_bytes(ctype) * 8
 int_from_bits = lambda signed: lambda bits: getattr(construct, "%sNInt%d" % (signed, bits))
 signed_int_from_bits = int_from_bits("S")
 unsigned_int_from_bits = int_from_bits("U")
+int_in_bytes = size_in_bytes(c_int)
 int_in_bits = size_in_bits(c_int)
 char_in_bits = size_in_bits(c_char)
 short_in_bits = size_in_bits(c_short)
@@ -85,3 +90,18 @@ class NiceDefaultStruct(NiceStruct, DefaultStruct):
     __slots__ = ()
     def build(self, **kw):
         return super(NiceDefaultStruct, self).build(**kw)
+
+class NativeToBigEndian(Subconstruct):
+    __slots__ = ()
+    def _convert(self, data):
+        if sys.byteorder == "little":
+            return "".join(reversed(list(data)))
+        return data
+    def _parse(self, stream, context):
+        stream = StringIO(self._convert(stream.read(self.subcon.sizeof())))
+        return self.subcon._parse(stream, context)
+    def _build(self, obj, stream, context):
+        fake_stream = StringIO()
+        self.subcon._build(obj, fake_stream, context)
+        stream.write(self._convert(fake_stream.getvalue()))
+
