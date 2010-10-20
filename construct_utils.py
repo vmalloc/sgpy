@@ -91,17 +91,9 @@ class NiceDefaultStruct(NiceStruct, DefaultStruct):
     def build(self, **kw):
         return super(NiceDefaultStruct, self).build(**kw)
 
-class NativeToBigEndian(Subconstruct):
-    __slots__ = ()
-    def _convert(self, data):
-        if sys.byteorder == "little":
-            return "".join(reversed(list(data)))
-        return data
-    def _parse(self, stream, context):
-        stream = StringIO(self._convert(stream.read(self.subcon.sizeof())))
-        return self.subcon._parse(stream, context)
-    def _build(self, obj, stream, context):
-        fake_stream = StringIO()
-        self.subcon._build(obj, fake_stream, context)
-        stream.write(self._convert(fake_stream.getvalue()))
-
+def NativeToBigEndian(subcon):
+    if sys.byteorder == "little":
+        codec = lambda buf: buf[::-1]
+        return Buffered(subcon, decoder=codec, encoder=codec,
+                        resizer=lambda length: length)
+    return subcon
