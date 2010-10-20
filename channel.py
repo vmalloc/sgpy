@@ -38,7 +38,7 @@ class Channel(object):
     def execute(self, command, *args, **kwargs):
         return command.execute(channel=self, *args, **kwargs)
 
-    def execute_io(self, io, async=True, poll=True):
+    def execute_io(self, io, async=False, poll=True):
         self._pending_ios.append(io)
         io.handle_start(self)
         if async:

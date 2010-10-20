@@ -8,6 +8,7 @@ class Command(object):
                  "response_handlers", 
                  "assert_success")
     IO_TYPE = None
+    ASSERT_SUCCESS_HANDLER = Success
 
     def __init__(self, cdb, io_kwargs={}):
         self.cdb = cdb
