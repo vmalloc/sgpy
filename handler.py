@@ -12,6 +12,3 @@ def Debug(io):
 
 def Success(io):
     print io.hdr
-
-
-

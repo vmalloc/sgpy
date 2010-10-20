@@ -82,6 +82,7 @@ class BaseReactor(object):
         raise self.FdError("fd %d (channel %s) encountered an error" % (fd, self._fd_to_channel(fd)))
 
 class SelectReactor(BaseReactor):
+
     def loop(self, timeout=None):
         r = list(self._get_pending_input())
         w = list(self._get_pending_output())
