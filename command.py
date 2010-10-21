@@ -1,32 +1,42 @@
 from . import io, cdb
 from .construct_utils import AttrDict
-from .handler import Success
+from .handler import success
+
+ASSERT_SUCCESS_HANDLER = success
 
 class Command(object):
 
     __slots__ = ("cdb", "io_kwargs", 
+                 "user_repr",
                  "response_handlers", 
-                 "assert_success")
+                 "assert_success",)
     IO_TYPE = None
-    ASSERT_SUCCESS_HANDLER = Success
 
-    def __init__(self, cdb, io_kwargs={}):
+    def __init__(self, cdb, io_kwargs={}, user_repr=None):
         self.cdb = cdb
         self.io_kwargs = io_kwargs
+        self.user_repr = user_repr
         self.response_handlers = []
         self.assert_success = True
 
+    def __repr__(self):
+        if self.user_repr is not None:
+            return self.user_repr
+        return super(Command, self).__repr__()
+
     def add_handler(self, handler, assert_success=True):
-        self.assert_success &= assert_success
+        self.assert_success &= assert_success & getattr(handler, 'assert_success', True)
         self.response_handlers.append(handler)
 
-    def execute(self, channel, *args, **kwargs):
+    def execute(self, channel, **channel_kwargs):
+        response_handlers = self.response_handlers[:]
         if self.assert_success:
-            self.response_handlers.insert(0, Success)
+            response_handlers.insert(0, ASSERT_SUCCESS_HANDLER)
         return channel.execute_io(self.IO_TYPE(cdb=self.cdb, 
-                                               response_handlers=self.response_handlers,
+                                               channel_kwargs=channel_kwargs,
+                                               response_handlers=response_handlers,
                                                **self.io_kwargs),
-                                  *args, **kwargs)
+                                  **channel_kwargs)
 
 class NoDirectionCommand(Command):
 
@@ -56,7 +66,10 @@ class AbstractCommandFactory(object):
 
     def __call__(self, **cdb_kwargs):
         cdb_kwargs, io_kwargs = self.fixargs(cdb_kwargs)
-        return self.COMMAND_TYPE(self.cdb_construct.build(AttrDict(**cdb_kwargs)), io_kwargs)
+        user_repr = "{0}({1})".format(self.cdb_construct.name,
+                                      ", ".join("{0}={1}".format(k, v) for k, v in cdb_kwargs.iteritems()))
+        return self.COMMAND_TYPE(cdb=self.cdb_construct.build(AttrDict(**cdb_kwargs)),
+                                 io_kwargs=io_kwargs, user_repr=user_repr)
 
 class NoDirectionCommandFactory(AbstractCommandFactory):
 

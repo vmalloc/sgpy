@@ -15,16 +15,25 @@ class Channel(object):
 
     @classmethod
     def from_path(cls, path, *args, **kwargs):
-        return cls(os.open(path, os.O_RDWR | os.O_NONBLOCK), *args, **kwargs)
+        return cls(fd=os.open(path, os.O_RDWR | os.O_NONBLOCK),
+                   user_repr=repr(path), *args, **kwargs)
 
-    def __init__(self, fd, reactor=None):
+    def __init__(self, fd, reactor=None, user_repr=None):
         self._fd = fd
         self._reactor = reactor if reactor is not None else SelectReactor()
         self._in_flight_ios = {}
         self._pending_ios = []
         self._index_gen = xrange_cycle(self._START_INDEX, self._END_INDEX)
         self._reactor.register_channel(self)
+        self._user_repr = user_repr
 
+    def __repr__(self):
+        if self._user_repr is not None:
+            msg = self._user_repr
+        else:
+            msg = repr(self._fd)
+        return "%s(%s)" % (self.__class__.__name__, msg)
+        
     #---user-interface---#
         
     def poll(self):
@@ -32,7 +41,7 @@ class Channel(object):
         return not self.has_pending_ios()
 
     def wait(self, poll=None, *args, **kwargs):
-        poll = poll if poll is not None else self.has_pending_ios
+        poll = poll if poll is not None else lambda: not self.has_pending_ios()
         self._reactor.wait(poll=poll, *args, **kwargs)
 
     def execute(self, command, *args, **kwargs):

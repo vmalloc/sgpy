@@ -18,6 +18,10 @@ class BaseReactor(object):
     def __init__(self):
         self._channels = {}
 
+    def __repr__(self):
+        return "{0}({1})".format(self.__class__.__name__,
+                                 ", ".join(map(repr, self._channels)))
+
     def register_channel(self, channel):
         self._channels[channel] = channel.get_fd()
         
