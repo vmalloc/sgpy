@@ -12,7 +12,7 @@ class AbstractIo(object):
                  "timeout", "response_handlers",
                  "cdb_buf","cdb_ptr","cdb_len",
                  "sense_buf", "sense_ptr", "sense_len",
-                 "channel", "hdr")
+                 "channel", "hdr", "sense")
     SENSE_SIZE = 0xff
     DXFER_DIRECTION = None
     DEFAULT_TIMEOUT = 60000
@@ -52,6 +52,7 @@ class AbstractIo(object):
     def handle_response(self, hdr):
         assert self.hdr is None
         self.hdr = hdr
+        self.sense = self.sense_buf[:hdr.sb_len_wr].tostring()
         [handler(self) for handler in self.response_handlers]
 
     def has_returned(self):
@@ -87,6 +88,7 @@ class Output(InputOrOutput):
 
     def __init__(self, data, *args, **kwargs):
         super(Output, self).__init__(*args, **kwargs)
+        self.data = data
         self.data_buf, (self.data_ptr, self.data_len) = bytearray(data)
                  
 class Input(InputOrOutput):
