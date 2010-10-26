@@ -83,7 +83,7 @@ class InputOrOutput(AbstractIo):
 
 class Output(InputOrOutput):
 
-    __slots__ = ("data_buf", "data_ptr", "data_len")
+    __slots__ = ("data_buf", "data_ptr", "data_len", "data")
     DXFER_DIRECTION = "SG_DXFER_TO_DEV"    
 
     def __init__(self, data, *args, **kwargs):
