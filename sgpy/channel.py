@@ -44,8 +44,8 @@ class Channel(object):
         poll = poll if poll is not None else lambda: not self.has_pending_ios()
         self._reactor.wait(poll=poll, *args, **kwargs)
 
-    def execute(self, command, *args, **kwargs):
-        return command.execute(channel=self, *args, **kwargs)
+    def execute(self, command, **kwargs):
+        return command.execute(channel=self, **kwargs)
 
     def execute_io(self, io, async=False, poll=True):
         self._pending_ios.append(io)
@@ -57,8 +57,11 @@ class Channel(object):
             io.wait()
         return io
 
-    def execute_many(self, commands, *args, **kwargs):
-        return self.execute_many_ios([command.execute(channel=self) for command in commands], *args, **kwargs)
+    def execute_many(self, commands, async=False):
+        return self.execute_many_ios([command.execute(channel=self, 
+                                                      poll=False, 
+                                                      async=True) for command in commands], 
+                                     async=async)
 
     def execute_many_ios(self, ios, async=True):
         if async:
