@@ -14,7 +14,7 @@ setup(name="sgpy",
       author="Alon Horev",
       author_email="alonho@gmail.com",
       url="http://github.com/alonho/sgpy",
-      version="0.5.1",
+      version="0.5.2",
       packages=["sgpy"],
       requires=["construct"]
       )

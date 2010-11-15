@@ -1,11 +1,11 @@
-from ctypes import sizeof, c_int, c_char, c_short, c_voidp
-from cStringIO import StringIO
 import sys
+from ctypes import sizeof, c_int, c_char, c_short, c_voidp
 
 import construct
 from construct import *
 from construct.lib.container import AttrDict
 
+#---native-types-sizes---#
 size_in_bytes = lambda ctype: sizeof(ctype)
 size_in_bits = lambda ctype: size_in_bytes(ctype) * 8
 int_from_bits = lambda signed: lambda bits: getattr(construct, "%sNInt%d" % (signed, bits))
@@ -17,6 +17,7 @@ char_in_bits = size_in_bits(c_char)
 short_in_bits = size_in_bits(c_short)
 pointer_in_bits = size_in_bits(c_voidp)
 
+#---native-types---#
 SNInt = signed_int_from_bits(int_in_bits)
 UNInt = unsigned_int_from_bits(int_in_bits)
 SNChar = signed_int_from_bits(char_in_bits)
@@ -24,6 +25,17 @@ UNChar = unsigned_int_from_bits(char_in_bits)
 SNShort = signed_int_from_bits(short_in_bits)
 UNShort = unsigned_int_from_bits(short_in_bits)
 Pointer = unsigned_int_from_bits(pointer_in_bits)
+
+#---utilities---#
+if sys.byteorder == "little":
+    reversedstring = lambda buf: buf[::-1]
+    NativeToBigEndian = lambda subcon: Buffered(subcon, decoder=reversedstring, encoder=reversedstring, 
+                                                resizer=lambda length: length)
+else:
+    NativeToBigEndian = lambda subcon: subcon
+
+UBInt24 = lambda name: NativeToBigEndian(EmbeddedBitStruct(Bits(name, 24)))
+EmbeddedStruct = lambda *a, **k: Embed(Struct(None, *a, **k))
 
 arch_to_align_func = {32 : lambda bytes: min(4, bytes),
                       64 : lambda bytes: bytes}
@@ -37,7 +49,7 @@ def c_struct_aligned(subcons, padding_type=Padding):
     the last member is padded with the number of bytes required to 
     conform to the largest type of the structure.
   
-    NOTE!: this function does not handle non-basic types like Struct and arrays,
+    NOTE!: this function does not handle non-basic types like Struct and Arrays,
            further code is required to decompose them to into basic types.
     """
     index = 0
@@ -90,10 +102,3 @@ class NiceDefaultStruct(NiceStruct, DefaultStruct):
     __slots__ = ()
     def build(self, **kw):
         return super(NiceDefaultStruct, self).build(**kw)
-
-def NativeToBigEndian(subcon):
-    if sys.byteorder == "little":
-        codec = lambda buf: buf[::-1]
-        return Buffered(subcon, decoder=codec, encoder=codec,
-                        resizer=lambda length: length)
-    return subcon

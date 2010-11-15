@@ -92,9 +92,9 @@ class ReadCommandFactory(InputCommandFactory):
 
     __slots__ = ()
 
-    def fixargs(self, cdbKwargs):
-        ioKwargs = dict(data_len=SECTOR*cdbKwargs["transfer_length"])
-        return cdbKwargs, ioKwargs
+    def fixargs(self, cdb_kwargs):
+        io_kwargs = dict(data_len=SECTOR*cdb_kwargs["transfer_length"])
+        return cdb_kwargs, io_kwargs
 
 class WriteCommandFactory(OutputCommandFactory):
 
@@ -121,9 +121,20 @@ class CompareAndWriteFactory(OutputCommandFactory):
         cdb_kwargs["transfer_length"] = blocks / 2
         return cdb_kwargs, io_kwargs
 
+class ExtendedCopyFactory(OutputCommandFactory):
+
+    __slots__ = ()
+
+    def fixargs(self, cdb_kwargs):
+        parameter_list = cdb_kwargs.pop("parameter_list")
+        cdb_kwargs["parameter_list_length"] = len(parameter_list)
+        io_kwargs = dict(data=parameter_list)
+        return cdb_kwargs, io_kwargs
+
 TestUnitReady = NoDirectionCommandFactory(cdb.TestUnitReady)
 Read6 = ReadCommandFactory(cdb.Read6)
 Read10 = ReadCommandFactory(cdb.Read10)
 Write6 = WriteCommandFactory(cdb.Write6)
 Write10 = WriteCommandFactory(cdb.Write10)
 CompareAndWrite = CompareAndWriteFactory(cdb.CompareAndWrite)
+ExtendedCopy = ExtendedCopyFactory(cdb.ExtendedCopy)
