@@ -41,10 +41,29 @@ def _scsi10(name, opcode, protect_type):
                        Byte("control"),
                        defaults=defaults)
 
+def _scsi16(name, opcode, protect_type):
+    defaults = dict(opcode=opcode,
+                    dpo=False,
+                    fua=False,
+                    fua_nv=False,
+                    group_number=0,
+                    control=0)
+    defaults[protect_type] = 0
+    return struct_type(name,
+                       Const(Byte("opcode"), opcode),
+                       service_struct_factory(protect_type),
+                       UBInt64("lba"),
+                       UBInt32("transfer_length"),
+                       GroupStruct,
+                       Byte("control"),
+                       defaults=defaults)
+
 Read6 = _scsi6("read6", 0x8)
-Write6 = _scsi6("write6", 0xA)
+Write6 = _scsi6("write6", 0xa)
 Read10 = _scsi10("read10", 0x28, "rdprotect")
-Write10 = _scsi10("write10", 0x2A, "wrprotect")
+Write10 = _scsi10("write10", 0x2a, "wrprotect")
+Read16 = _scsi16("read16", 0x88, "rdprotect")
+Write16 = _scsi16("write16", 0x8a, "wrprotect")
 
 CompareAndWrite = struct_type("compare_and_write",
                               Const(Byte("opcode"), 0x89),
