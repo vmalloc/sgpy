@@ -1,5 +1,6 @@
 import os
 
+from .command_shortcuts import CommandShortcuts
 from .reactor import SelectReactor
 from .sg import SgIoHdr, SgIoHdrSize
 
@@ -26,6 +27,7 @@ class Channel(object):
         self._index_gen = xrange_cycle(self._START_INDEX, self._END_INDEX)
         self._reactor.register_channel(self)
         self._user_repr = user_repr
+        self.cmd = CommandShortcuts(self)
 
     def __repr__(self):
         if self._user_repr is not None:

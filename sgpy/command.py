@@ -55,18 +55,19 @@ class OutputCommand(Command):
 
 class AbstractCommandFactory(object):
 
-    __slots__ = ('cdb_construct')
+    __slots__ = ('cdb_construct', 'name')
     COMMAND_TYPE = None
 
-    def __init__(self, cdb_construct):
+    def __init__(self, cdb_construct, name=''):
         self.cdb_construct = cdb_construct
+        self.name = name
 
     def fixargs(self, cdb_kwargs):
         return cdb_kwargs, {}
 
     def __call__(self, **cdb_kwargs):
         cdb_kwargs, io_kwargs = self.fixargs(cdb_kwargs)
-        user_repr = "{0}({1})".format(self.cdb_construct.name,
+        user_repr = "{0}({1})".format(self.name or self.cdb_construct.name,
                                       ", ".join("{0}={1}".format(k, v) for k, v in cdb_kwargs.iteritems()))
         return self.COMMAND_TYPE(cdb=self.cdb_construct.build(AttrDict(**cdb_kwargs)),
                                  io_kwargs=io_kwargs, user_repr=user_repr)
@@ -131,12 +132,31 @@ class ExtendedCopyFactory(OutputCommandFactory):
         io_kwargs = dict(data=parameter_list)
         return cdb_kwargs, io_kwargs
 
-TestUnitReady = NoDirectionCommandFactory(cdb.TestUnitReady)
-Read6 = ReadCommandFactory(cdb.Read6)
-Read10 = ReadCommandFactory(cdb.Read10)
-Read16 = ReadCommandFactory(cdb.Read16)
-Write6 = WriteCommandFactory(cdb.Write6)
-Write10 = WriteCommandFactory(cdb.Write10)
-Write16 = WriteCommandFactory(cdb.Write16)
-CompareAndWrite = CompareAndWriteFactory(cdb.CompareAndWrite)
-ExtendedCopy = ExtendedCopyFactory(cdb.ExtendedCopy)
+Read6 = ReadCommandFactory(cdb.Read6, "Read6")
+Read10 = ReadCommandFactory(cdb.Read10, "Read10")
+Read16 = ReadCommandFactory(cdb.Read16, "Read16")
+Write6 = WriteCommandFactory(cdb.Write6, "Write6")
+Write10 = WriteCommandFactory(cdb.Write10, "Write10")
+Write16 = WriteCommandFactory(cdb.Write16, "Write16")
+CompareAndWrite = CompareAndWriteFactory(cdb.CompareAndWrite, "CompareAndWrite")
+TestUnitReady = NoDirectionCommandFactory(cdb.TestUnitReady, "TestUnitReady")
+Reserve6 = NoDirectionCommandFactory(cdb.Reserve6, "Reserve6")
+Release6 = NoDirectionCommandFactory(cdb.Release6, "Release6")
+Reserve10 = NoDirectionCommandFactory(cdb.Reserve10, "Reserve10")
+Release10 = NoDirectionCommandFactory(cdb.Release10, "Release10")
+ExtendedCopy = ExtendedCopyFactory(cdb.ExtendedCopy, "ExtendedCopy")
+
+concrete_commands = [Read6,
+                     Read10,
+                     Read16,
+                     Write6,
+                     Write10,
+                     Write16,
+                     CompareAndWrite,
+                     TestUnitReady,
+                     Reserve6,
+                     Release6,
+                     Reserve10,
+                     Release10,
+                     ExtendedCopy]
+

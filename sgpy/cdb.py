@@ -81,12 +81,40 @@ CompareAndWrite = struct_type("compare_and_write",
                                             group_number=0,
                                             control=0))
                                          
-TestUnitReady = struct_type("test_unit_ready",
-                            Const(Byte("opcode"), 0),
-                            Padding(4),
-                            Byte("control"),
-                            defaults=dict(opcode=0,
-                                          control=0))
+def _simple_scsi6(name, opcode):
+    return struct_type(name,
+                       Const(Byte("opcode"), opcode),
+                       Padding(4),
+                       Byte("control"),
+                       defaults=dict(opcode=opcode,
+                                     control=0))
+
+TestUnitReady = _simple_scsi6("test_unit_ready", 0)
+Reserve6 = _simple_scsi6("reserve6", 0x16)
+Release6 = _simple_scsi6("release6", 0x17)
+
+def _reserve10(name, opcode):
+    return struct_type(name,
+                       Const(Byte("opcode"), opcode),
+                        EmbeddedBitStruct(Padding(3),
+                                          Flag("third_party"),
+                                          Padding(2),
+                                          Flag("long_id"),
+                                          Padding(1)),
+                        Padding(1),
+                        Byte("third_party_device_id"),
+                        Padding(3),
+                        UBInt16("parameter_list_length"),
+                        Byte("control"),
+                        defaults=dict(opcode=opcode,
+                                      long_id=False,
+                                      third_party=False,
+                                      third_party_device_id=False,
+                                      parameter_list_length=0,
+                                      control=0))
+
+Reserve10 = _reserve10("reserve10", 0x56)
+Release10 = _reserve10("release10", 0x57)
 
 #--extended-copy--#
 
