@@ -14,5 +14,5 @@ class CommandShortcuts(object):
     def __init__(self, channel):
         self.channel = channel
         for cmd in command.concrete_commands:
-            setattr(self, cmd.name, CommandWrapper(self.channel, cmd))
+            setattr(self, cmd.__name__, CommandWrapper(self.channel, cmd))
 

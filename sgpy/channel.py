@@ -14,6 +14,9 @@ class Channel(object):
     _START_INDEX = 0
     _END_INDEX = 0xffffffff # max int
 
+    class ChannelException(Exception): pass
+    class UnexpectedIoException(ChannelException): pass
+
     @classmethod
     def from_path(cls, path, *args, **kwargs):
         return cls(fd=os.open(path, os.O_RDWR | os.O_NONBLOCK),
@@ -51,7 +54,6 @@ class Channel(object):
 
     def execute_io(self, io, async=False, poll=True):
         self._pending_ios.append(io)
-        io.handle_start(self)
         if async:
             if poll:
                 self.poll()
@@ -101,5 +103,6 @@ class Channel(object):
     def readable(self):
         data = os.read(self._fd, SgIoHdrSize)
         hdr = SgIoHdr.parse(data)
-        assert hdr.usr_ptr in self._in_flight_ios, "unknown io returned: %s" % (hdr,) 
+        if hdr.usr_ptr not in self._in_flight_ios:
+            raise self.UnexpectedIoException("unknown io returned: %s" % (hdr,))
         self._in_flight_ios.pop(hdr.usr_ptr).handle_response(hdr)

@@ -8,8 +8,7 @@ def bytearray(init=""):
 
 class AbstractIo(object):
 
-    __slots__ = ("cdb", "channel_kwargs", 
-                 "timeout", "response_handlers",
+    __slots__ = ("cdb", "timeout", "response_handlers",
                  "cdb_buf","cdb_ptr","cdb_len",
                  "sense_buf", "sense_ptr", "sense_len",
                  "channel", "hdr", "sense")
@@ -17,29 +16,19 @@ class AbstractIo(object):
     DXFER_DIRECTION = None
     DEFAULT_TIMEOUT = 60000
 
-    def __init__(self, cdb, channel_kwargs, timeout=60000, response_handlers=[]):
+    def __init__(self, cdb, channel, timeout=DEFAULT_TIMEOUT, response_handlers=[]):
         self.cdb = cdb
-        self.channel_kwargs = channel_kwargs
+        self.channel = channel
         self.timeout = timeout
         self.response_handlers = response_handlers
         self.cdb_buf, (self.cdb_ptr, self.cdb_len) = bytearray(self.cdb)
         self.sense_buf, (self.sense_ptr, self.sense_len) = bytearray([0]*self.SENSE_SIZE) 
-        self.channel = None
         self.hdr = None
 
     def __repr__(self):
         return "{0}(timeout={1}, returned={2})".format(self.__class__.__name__,
                                                        self.timeout,
                                                        self.has_returned())
-
-    def handle_start(self, channel):
-        assert self.channel is None
-        self.channel = channel
-
-    def restart(self):
-        assert self.has_returned()
-        channel, self.channel, self.hdr = self.channel, None, None
-        return channel.execute_io(self, **self.channel_kwargs)
 
     def get_sg_info(self):
         return AttrDict(dxfer_direction=self.DXFER_DIRECTION,
