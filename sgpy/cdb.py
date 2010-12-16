@@ -200,3 +200,72 @@ ExtendedCopy = struct_type("extended_copy",
                            Byte("control"),
                            defaults=dict(opcode=0x83,
                                          control=0))
+
+#--persistent-reservations--#
+
+PersistentReserveIn = struct_type("persistent_reserve_in",
+                                  Const(Byte("opcode"), 0x5e),
+                                  EmbeddedBitStruct(Padding(3),
+                                                    Enum(Bits("service_action", 5),
+                                                         read_keys=0,
+                                                         read_reservations=1)),
+                                  Padding(5),
+                                  UBInt16("allocation_length"),
+                                  Byte("control"),
+                                  defaults=dict(opcode=0x5e,
+                                                control=0))
+
+scope_and_type = EmbeddedBitStruct(Enum(Bits("scope", 4),
+                                        lu_scope=1,
+                                        element_scope=2),
+                                   Enum(Bits("type", 4),
+                                        write_exclusive=1,
+                                        exclusive_access=3,
+                                        write_exclusive_registrants_only=5,
+                                        exclusive_access_registrants_only=6,
+                                        write_access_all_registrants=7,
+                                        exclusive_access_all_registrants=8))
+
+ReservationKey = UBInt64("reservation_key")
+ReadKeysResponse = struct_type("read_keys_response",
+                               UBInt32("generation"),
+                               UBInt32("length"),
+                               MetaArray(lambda con: con["length"] / ReservationKey.sizeof(),
+                                         ReservationKey))
+
+ReservationDescriptor = struct_type("reservation_descriptor",
+                                    UBInt64("reservation_key"),
+                                    UBInt32("scope_specific_address"),
+                                    Padding(1),
+                                    scope_and_type,
+                                    Padding(2))
+
+ReadReservationsResponse =  struct_type("read_reservations_response",
+                                        UBInt32("generation"),
+                                        UBInt32("length"),
+                                        MetaArray(lambda con: con["length"] / ReservationDescriptor.sizeof(),
+                                                  ReservationDescriptor))
+
+PersistentReserveOut = struct_type("persistent_reserve_out",
+                                   Const(Byte("opcode"), 0x5f),
+                                   EmbeddedBitStruct(Padding(3),
+                                                     Enum(Bits("service_action", 5),
+                                                          register=0,
+                                                          reserve=1,
+                                                          release=2,
+                                                          clear=3,
+                                                          preempt=4,
+                                                          preempt_and_abort=5,
+                                                          register_and_ignore_existing_key=6)),
+                                   scope_and_type,
+                                   Padding(4),
+                                   UBInt16("parameter_list_length"),
+                                   Byte("control"))
+
+PersistentReserveOutParameterList = struct_type("persistent_reserve_out_parameter_list",
+                                                UBInt64("reservation_key"),
+                                                UBInt64("service_action_reservation_key"),
+                                                UBInt32("scope_specific_address"),
+                                                EmbeddedBitStruct(Padding(7),
+                                                                  Flag("aptpl")),
+                                                Padding(3))
