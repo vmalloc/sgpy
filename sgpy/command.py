@@ -8,29 +8,32 @@ ASSERT_SUCCESS_HANDLER = success
 
 class Command(object):
 
-    __slots__ = ("cdb", "io_kwargs", 
-                 "response_handlers")
+    __slots__ = ("_cdb", "_io_kwargs", 
+                 "_response_handlers")
     IO_TYPE = None
 
     def __init__(self, cdb, io_kwargs={},
-                 verify_handler=ASSERT_SUCCESS_HANDLER):
-        self.cdb = cdb
-        self.io_kwargs = io_kwargs
-        self.response_handlers = [verify_handler]
+                 verify_handler=None):
+        if verify_handler is None:
+            verify_handler = ASSERT_SUCCESS_HANDLER
+        self._cdb = cdb
+        self._io_kwargs = io_kwargs
+        self._response_handlers = [verify_handler]
 
     def __repr__(self):
         return "{0}(cdb(hex)={1}, io_kwargs={2})".format(self.__class__.__name__,
-                                                        self.cdb.encode('hex'),
-                                                        self.io_kwargs)
+                                                         self._cdb.encode('hex'),
+                                                         self._io_kwargs)
 
     def add_handler(self, handler):
-        self.response_handlers.append(handler)
+        self._response_handlers.append(handler)
 
     def execute(self, channel, **channel_kwargs):
-        return channel.execute_io(self.IO_TYPE(cdb=self.cdb,
+        return channel.execute_io(self.IO_TYPE(cdb=self._cdb,
                                                channel=channel,
-                                               response_handlers=self.response_handlers,
-                                               **self.io_kwargs),
+                                               channel_kwargs=channel_kwargs,
+                                               response_handlers=self._response_handlers,
+                                               **self._io_kwargs),
                                   **channel_kwargs)
 
 class NoDirectionCommand(Command):
@@ -53,7 +56,7 @@ class AbstractCdbCommand(Command):
     __slots__ = ("_repr",)
     CDB = None
 
-    def fixargs(self, **kwargs):
+    def _fixargs(self, **kwargs):
         io_kwargs = {}
         if 'timeout' in kwargs:
             io_kwargs['timeout'] = kwargs.pop('timeout')
@@ -61,17 +64,18 @@ class AbstractCdbCommand(Command):
 
     def __init__(self, **kwargs):
         assert self.CDB is not None
-        cdb_kwargs, io_kwargs = self.fixargs(**kwargs)
+        cdb_kwargs, io_kwargs = self._fixargs(**kwargs)
         super_kwargs = dict(cdb=self.CDB.build(AttrDict(**cdb_kwargs)), 
                             io_kwargs=io_kwargs)
         if 'verify_handler' in kwargs:
             super_kwargs['verify_handler'] = kwargs.pop('verify_handler')
         super(AbstractCdbCommand, self).__init__(**super_kwargs)
+
         attrs = self.CDB.defaults.copy()
         attrs.update(cdb_kwargs)
-        self._repr = "{0}({1})".format(self.CDB.name,
-                                       ", ".join("{0}={1}".format(k, v) for k, v in attrs.iteritems()))
-        
+        attrs_to_values = ", ".join("{0}={1}".format(k, v) for k, v in attrs.iteritems())
+        self._repr = "{0}({1})".format(self.CDB.name, attrs_to_values)
+                                       
     def __repr__(self):
         return self._repr
 
@@ -102,21 +106,23 @@ class ReadCommand(InputCdbCommand):
 
     __slots__ = ()
 
-    def fixargs(self, **kwargs):
-        cdb_kwargs, io_kwargs = super(ReadCommand, self).fixargs(**kwargs)
-        io_kwargs = dict(data_len=SECTOR*cdb_kwargs["transfer_length"])
+    def _fixargs(self, **kwargs):
+        cdb_kwargs, io_kwargs = super(ReadCommand, self)._fixargs(**kwargs)
+        io_kwargs["data_len"] = SECTOR*cdb_kwargs["transfer_length"]
         return cdb_kwargs, io_kwargs
 
 class WriteCommand(OutputCdbCommand):
 
     __slots__ = ()
 
-    def fixargs(self, **kwargs):
-        cdb_kwargs, io_kwargs = super(WriteCommand, self).fixargs(**kwargs)
+    def _fixargs(self, **kwargs):
+        cdb_kwargs, io_kwargs = super(WriteCommand, self)._fixargs(**kwargs)
         data = cdb_kwargs.pop("data")
-        io_kwargs = dict(data=data)
-        blocks, leftover = divmod(len(data), SECTOR)
-        assert leftover == 0
+        io_kwargs["data"] = data
+        data_len = len(data)
+        blocks, leftover = divmod(data_len, SECTOR)
+        if leftover != 0:
+            raise ValueError("data length({0}) does not divide in {1}".format(data_len, SECTOR))
         cdb_kwargs["transfer_length"] = blocks
         return cdb_kwargs, io_kwargs
 
@@ -127,8 +133,8 @@ class CompareAndWrite(OutputCdbCommand):
     __slots__ = ()    
     CDB = cdb.CompareAndWrite
 
-    def fixargs(self, **kwargs):
-        cdb_kwargs, io_kwargs = super(CompareAndWrite, self).fixargs(**kwargs)
+    def _fixargs(self, **kwargs):
+        cdb_kwargs, io_kwargs = super(CompareAndWrite, self)._fixargs(**kwargs)
         data = cdb_kwargs.pop("data")
         data_len = len(data)
         blocks, leftover = divmod(data_len, SECTOR)
@@ -146,8 +152,8 @@ class ExtendedCopy(OutputCdbCommand):
     __slots__ = ()
     CDB = cdb.ExtendedCopy
 
-    def fixargs(self, **kwargs):
-        cdb_kwargs, io_kwargs = super(ExtendedCopy, self).fixargs(**kwargs)
+    def _fixargs(self, **kwargs):
+        cdb_kwargs, io_kwargs = super(ExtendedCopy, self)._fixargs(**kwargs)
         parameter_list = kwargs.pop("parameter_list")
         cdb_kwargs["parameter_list_length"] = len(parameter_list)
         io_kwargs = dict(data=parameter_list)
@@ -190,6 +196,25 @@ class Release10(NoDirectionCdbCommand):
     __slots__ = ()
     CDB = cdb.Release10
 
+class PersistentReserveIn(InputCdbCommand):
+    __slots__ = ()
+    CDB = cdb.PersistentReserveIn
+
+    def _fixargs(self, **kwargs):
+        cdb_kwargs, io_kwargs = super(PersistentReserveIn, self)._fixargs(**kwargs)
+        io_kwargs["data_len"] = cdb_kwargs["allocation_length"]
+        return cdb_kwargs, io_kwargs
+
+class PersistentReserveOut(OutputCdbCommand):
+    __slots__ = ()
+    CDB = cdb.PersistentReserveOut
+    
+    def _fixargs(self, **kwargs):
+        cdb_kwargs, io_kwargs = super(PersistentReserveOut, self)._fixargs(**kwargs)
+        parameter_list = cdb_kwargs.pop("parameter_list")
+        cdb_kwargs["parameter_list_length"] = len(parameter_list)
+        return cdb_kwargs, io_kwargs
+
 concrete_commands = [CompareAndWrite,
                      ExtendedCopy,
                      TestUnitReady,
@@ -202,5 +227,7 @@ concrete_commands = [CompareAndWrite,
                      Reserve6,
                      Release6,
                      Reserve10,
-                     Release10]
+                     Release10,
+                     PersistentReserveIn,
+                     PersistentReserveOut]
 

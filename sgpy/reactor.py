@@ -11,7 +11,7 @@ class BaseReactor(object):
       writable, 
       readable
     """
-    
+
     class TimeoutError(Exception): pass
     class FdError(Exception): pass
 

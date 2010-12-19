@@ -1,7 +1,6 @@
 from .channel import Channel
 from .reactor import SelectReactor
-from .handler import *
-from . import command
+from . import command, handler
 
 __author__ = "Alon Horev (alonho [at] gmail.com)"
-__version__ = "0.5.4"
+__version__ = "0.6"

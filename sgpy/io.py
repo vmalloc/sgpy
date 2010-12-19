@@ -11,19 +11,31 @@ class AbstractIo(object):
     __slots__ = ("cdb", "timeout", "response_handlers",
                  "cdb_buf","cdb_ptr","cdb_len",
                  "sense_buf", "sense_ptr", "sense_len",
-                 "channel", "hdr", "sense")
-    SENSE_SIZE = 0xff
-    DXFER_DIRECTION = None
-    DEFAULT_TIMEOUT = 60000
+                 "channel", "channel_kwargs", "hdr", "sense")
 
-    def __init__(self, cdb, channel, timeout=DEFAULT_TIMEOUT, response_handlers=[]):
+    SENSE_SIZE = 0xff
+    DEFAULT_TIMEOUT = 60000
+    DXFER_DIRECTION = None # to be overidden
+
+    class IoException(Exception): pass
+    class IoInFlightException(IoException): pass
+    class UnexpectedResponseException(IoException): pass
+
+    def __init__(self, cdb, channel, channel_kwargs,
+                 timeout=DEFAULT_TIMEOUT, response_handlers=[]):
+        assert self.DXFER_DIRECTION is not None
         self.cdb = cdb
         self.channel = channel
+        self.channel_kwargs = channel_kwargs
         self.timeout = timeout
         self.response_handlers = response_handlers
         self.cdb_buf, (self.cdb_ptr, self.cdb_len) = bytearray(self.cdb)
         self.sense_buf, (self.sense_ptr, self.sense_len) = bytearray([0]*self.SENSE_SIZE) 
         self.hdr = None
+
+    def restart(self):
+        self._reset()
+        self.channel.execute_io(self, **self.channel_kwargs)
 
     def __repr__(self):
         return "{0}(timeout={1}, returned={2})".format(self.__class__.__name__,
@@ -39,16 +51,21 @@ class AbstractIo(object):
                         sbp=self.sense_ptr)
 
     def handle_response(self, hdr):
-        assert self.hdr is None
+        if self.has_returned():
+            raise self.UnexpectedResponseException("received an unexpected sg_io_hdr: {0}".format(hdr))
         self.hdr = hdr
         self.sense = self.sense_buf[:hdr.sb_len_wr].tostring()
         [handler(self) for handler in self.response_handlers]
+
+    def _reset(self):
+        if not self.has_returned():
+            raise self.IoInFlightException("cannot restart {0} while it is in-flight".format(self))
+        self.hdr = None
 
     def has_returned(self):
         return self.hdr is not None
 
     def poll(self):
-        assert self.channel is not None
         self.channel.poll()
         return self.has_returned()
 
