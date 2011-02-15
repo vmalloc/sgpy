@@ -1,3 +1,9 @@
+Installation
+============
+standard setuptools installation:
+::
+  python setup.py install
+
 Why sgpy?
 =========
 sgpy provides a pythonic interface for sending scsi commands using the sg (SCSI Generic) linux driver.
