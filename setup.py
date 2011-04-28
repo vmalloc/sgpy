@@ -1,4 +1,4 @@
-from distutils.core import setup
+from setuptools import setup
 
 setup(name="sgpy",
       classifiers = [
@@ -16,5 +16,5 @@ setup(name="sgpy",
       url="http://github.com/alonho/sgpy",
       version="0.6.1",
       packages=["sgpy"],
-      requires=["construct"]
+      install_requires=["construct"]
       )
